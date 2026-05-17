@@ -259,11 +259,11 @@ service_load_blob(struct blob_attr *b)
 
 	n = strlen(blobmsg_name(b));
 	s = calloc_a(sizeof(*s),
-		&d_id, n + 1,
-		&d_hostname, _tb[SERVICE_HOSTNAME] ? strlen(blobmsg_get_string(_tb[SERVICE_HOSTNAME])) + 1 : 0,
-		&d_instance, _tb[SERVICE_INSTANCE] ? strlen(blobmsg_get_string(_tb[SERVICE_INSTANCE])) + 1 : 0,
+		&d_id, (size_t)(n + 1),
+		&d_hostname, _tb[SERVICE_HOSTNAME] ? strlen(blobmsg_get_string(_tb[SERVICE_HOSTNAME])) + 1 : (size_t)0,
+		&d_instance, _tb[SERVICE_INSTANCE] ? strlen(blobmsg_get_string(_tb[SERVICE_INSTANCE])) + 1 : (size_t)0,
 		&d_service, strlen(blobmsg_get_string(_tb[SERVICE_SERVICE])) + 1,
-		&d_txt, txt_len);
+		&d_txt, (size_t)txt_len);
 	if (!s)
 		return;
 
