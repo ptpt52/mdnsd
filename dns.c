@@ -769,10 +769,17 @@ dns_handle_packet(struct interface *iface, struct sockaddr *from, uint16_t port,
 	struct dns_header *h;
 	uint8_t *b = buffer;
 	int rlen = len;
-	uint8_t orig_buffer[len];
+	uint8_t orig_buffer_fixed[1500];
+	uint8_t *orig_buffer = orig_buffer_fixed;
 	struct sockaddr *to = NULL;
 	bool append = false;
 
+	if (len > 1500) {
+		orig_buffer = malloc(len);
+		if (!orig_buffer)
+			return;
+		DBG(0, "dns_handle_packet oversized mDNS packet (len: %d)\n", len);
+	}
 	/* make a copy of the original buffer since it might be needed to construct the answer
 	 * in case the query is received from a one-shot multicast dns querier */
 	memcpy(orig_buffer, buffer, len);
@@ -780,7 +787,7 @@ dns_handle_packet(struct interface *iface, struct sockaddr *from, uint16_t port,
 	h = dns_consume_header(&b, &rlen);
 	if (!h) {
 		fprintf(stderr, "dropping: bad header\n");
-		return;
+		goto cleanup;
 	}
 
 	/* legacy querier */
@@ -806,13 +813,13 @@ dns_handle_packet(struct interface *iface, struct sockaddr *from, uint16_t port,
 
 		if (!name || rlen < 0) {
 			fprintf(stderr, "dropping: bad name\n");
-			return;
+			goto cleanup;
 		}
 
 		q = dns_consume_question(&b, &rlen);
 		if (!q) {
 			fprintf(stderr, "dropping: bad question\n");
-			return;
+			goto cleanup;
 		}
 
 		if (!(h->flags & FLAG_RESPONSE))
@@ -824,18 +831,21 @@ dns_handle_packet(struct interface *iface, struct sockaddr *from, uint16_t port,
 		dns_packet_send(iface, to, 0, 0);
 
 	if (!(h->flags & FLAG_RESPONSE))
-		return;
+		goto cleanup;
 
 	while (h->answers-- > 0)
 		if (parse_answer(iface, from, buffer, len, &b, &rlen, 1))
-			return;
+			goto cleanup;
 
 	while (h->authority-- > 0)
 		if (parse_answer(iface, from, buffer, len, &b, &rlen, 1))
-			return;
+			goto cleanup;
 
 	while (h->additional-- > 0)
 		if (parse_answer(iface, from, buffer, len, &b, &rlen, 1))
-			return;
+			goto cleanup;
 
+cleanup:
+	if (orig_buffer != orig_buffer_fixed)
+		free(orig_buffer);
 }
