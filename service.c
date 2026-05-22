@@ -239,9 +239,9 @@ service_load_blob(struct blob_attr *b)
 	struct blob_attr *txt, *_tb[__SERVICE_MAX];
 	struct service *s;
 	char *d_instance, *d_hostname, *d_service, *d_id;
+	size_t txt_len = 0;
 	uint8_t *d_txt;
 	int rem2;
-	int txt_len = 0;
 	unsigned int n;
 
 	blobmsg_parse(service_policy, ARRAY_SIZE(service_policy),

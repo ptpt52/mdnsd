@@ -163,7 +163,7 @@ cache_update(void)
 }
 
 static struct cache_service*
-cache_service(struct interface *iface, char *entry, int hlen, int ttl)
+cache_service(struct interface *iface, char *entry, size_t hlen, int ttl)
 {
 	struct cache_service *s, *t;
 	char *entry_buf;
@@ -261,7 +261,7 @@ void cache_answer(struct interface *iface, struct sockaddr *from, uint8_t *base,
 {
 	struct dns_srv_data *dsd = (struct dns_srv_data *) rdata;
 	struct cache_record *r;
-	int port = 0, dlen = 0, tlen = 0, nlen, rdlength;
+	size_t port = 0, dlen = 0, tlen = 0, nlen, rdlength;
 	char *p = NULL;
 	char *name_buf;
 	void *rdata_ptr, *txt_ptr;
