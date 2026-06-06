@@ -518,8 +518,8 @@ cache_dump_records(struct blob_buf *buf, const char *name, int array,
 
 			if (r->record) {
 				const struct dns_srv_data *dsd;
-				char *domain = NULL;
-				
+				const char *domain = NULL;
+
 				domain = strstr(r->record, "._udp.");
 
 				if (!domain)
