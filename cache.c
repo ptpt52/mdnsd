@@ -40,6 +40,27 @@
 #include "dns.h"
 #include "interface.h"
 
+/*
+ * mDNS answers are unsolicited and unauthenticated, so any host on the
+ * local segment can spray responses for an unbounded number of unique
+ * names. Without these limits the cache grows without bound: every
+ * record/service is kept until its TTL expires, and an attacker is free
+ * to pick an arbitrarily large TTL, which defeats the TTL-only GC. A
+ * sustained flood then exhausts the heap and crashes (or OOMs) the
+ * daemon.
+ *
+ * CACHE_TTL_MAX clamps the stored TTL so the GC keeps reclaiming hostile
+ * records (RFC 6762 recommends 75 minutes for shared records), and
+ * cache_entries_max bounds the number of cached records and services so
+ * memory stays bounded even while a flood is ongoing. The limit defaults
+ * to CACHE_ENTRIES_MAX and can be overridden with the -c command line
+ * option.
+ */
+#define CACHE_TTL_MAX		(75 * 60)
+#define CACHE_ENTRIES_MAX	2048
+
+int cache_entries_max = CACHE_ENTRIES_MAX;
+
 static struct uloop_timeout cache_gc;
 struct avl_tree services;
 
@@ -178,9 +199,14 @@ cache_service(struct interface *iface, char *entry, size_t hlen, int ttl)
 			return s;
 		}
 
+	if (services.count >= (unsigned int)cache_entries_max)
+		return NULL;
+
 	s = calloc_a(sizeof(*s),
 		&entry_buf, strlen(entry) + 1,
 		&host_buf, hlen ? hlen + sizeof(".local") + 1 : 0);
+	if (!s)
+		return NULL;
 
 	s->avl.key = s->entry = strcpy(entry_buf, entry);
 	s->time = monotonic_time();
@@ -270,6 +296,14 @@ void cache_answer(struct interface *iface, struct sockaddr *from, uint8_t *base,
 	time_t now = monotonic_time();
 
 	nlen = strlen(name);
+
+	/*
+	 * A TTL of 0 is a "goodbye" and is handled below; clamp any other
+	 * value so a hostile, very large TTL cannot keep a record alive
+	 * indefinitely and defeat the GC.
+	 */
+	if (a->ttl > CACHE_TTL_MAX)
+		a->ttl = CACHE_TTL_MAX;
 
 	switch (a->type) {
 	case TYPE_PTR:
@@ -364,10 +398,17 @@ void cache_answer(struct interface *iface, struct sockaddr *from, uint8_t *base,
 	if (!a->ttl)
 		return;
 
+	if (records.count >= (unsigned int)cache_entries_max) {
+		DBG(1, "Cache full, dropping %s %s\n", dns_type_string(a->type), name);
+		return;
+	}
+
 	r = calloc_a(sizeof(*r),
 		&name_buf, strlen(name) + 1,
 		&txt_ptr, tlen,
 		&rdata_ptr, dlen);
+	if (!r)
+		return;
 
 	r->avl.key = r->record = strcpy(name_buf, name);
 	r->type = a->type;

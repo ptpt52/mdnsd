@@ -92,13 +92,13 @@ signal_shutdown(int signal)
 int
 main(int argc, char **argv)
 {
-	int ch, ttl;
+	int ch, ttl, max;
 
 	uloop_init();
 	udebug_init(&ud);
 	udebug_auto_connect(&ud, NULL);
 
-	while ((ch = getopt(argc, argv, "t:i:d46n")) != -1) {
+	while ((ch = getopt(argc, argv, "t:i:d46nc:")) != -1) {
 		switch (ch) {
 		case 't':
 			ttl = atoi(optarg);
@@ -106,6 +106,13 @@ main(int argc, char **argv)
 				announce_ttl = ttl;
 			else
 				fprintf(stderr, "invalid ttl\n");
+			break;
+		case 'c':
+			max = atoi(optarg);
+			if (max > 0)
+				cache_entries_max = max;
+			else
+				fprintf(stderr, "invalid cache size\n");
 			break;
 		case 'd':
 			debug++;

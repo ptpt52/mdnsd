@@ -50,6 +50,7 @@ struct cache_record {
 
 extern struct avl_tree services;
 extern struct avl_tree records;
+extern int cache_entries_max;
 
 int cache_init(void);
 void cache_update(void);
